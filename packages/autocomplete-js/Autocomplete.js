@@ -87,10 +87,18 @@ class Autocomplete {
     this.input.setAttribute('aria-expanded', 'false')
 
     this.resultList.setAttribute('role', 'listbox')
-    this.resultList.style.position = 'absolute'
-    this.resultList.style.zIndex = '1'
-    this.resultList.style.width = '100%'
-    this.resultList.style.boxSizing = 'border-box'
+
+    this.resultContainer = this.root.querySelector(
+      '.autocomplete-result-list-wrapper'
+    )
+
+    this.resultContainer.style.position = 'absolute'
+    this.resultContainer.style['z-index'] = '1'
+    this.resultContainer.style.width = '100%'
+    this.resultContainer.style['box-sizing'] = 'border-box'
+    this.resultContainer.style.visibility = 'hidden'
+    this.resultContainer.style['pointer-events'] = 'none'
+    this.resultContainer.style.bottom = '100%'
 
     // Generate ID for results list if it doesn't have one
     if (!this.resultList.id) {
@@ -100,7 +108,7 @@ class Autocomplete {
 
     document.body.addEventListener('click', this.handleDocumentClick)
     this.input.addEventListener('input', this.core.handleInput)
-    this.input.addEventListener('keydown', this.core.handleKeyDown)
+    this.input.addEventListener('keydown', this.handleKeyDown)
     this.input.addEventListener('focus', this.core.handleFocus)
     this.input.addEventListener('blur', this.core.handleBlur)
     this.resultList.addEventListener(
@@ -109,6 +117,49 @@ class Autocomplete {
     )
     this.resultList.addEventListener('click', this.core.handleResultClick)
     this.updateStyle()
+  }
+
+  handleKeyDown = event => {
+    const { key } = event
+
+    switch (key) {
+      case 'Up': // IE/Edge
+      case 'Down': // IE/Edge
+      case 'ArrowUp':
+      case 'ArrowDown': {
+        const selectedIndex =
+          key === 'ArrowUp' || key === 'Up'
+            ? this.core.selectedIndex - 1
+            : this.core.selectedIndex + 1
+        event.preventDefault()
+        this.core.handleArrows(selectedIndex)
+        break
+      }
+      case 'Tab': {
+        this.core.selectResult()
+        break
+      }
+      case 'Enter': {
+        const selectedResult = this.core.results[this.core.selectedIndex]
+
+        // Avoid closing the search box on Enter if a result is not selected.
+        if (!selectedResult) {
+          return
+        }
+
+        this.core.selectResult()
+        this.core.onSubmit(selectedResult)
+        break
+      }
+      case 'Esc': // IE/Edge
+      case 'Escape': {
+        this.core.hideResults()
+        this.core.setValue()
+        break
+      }
+      default:
+        return
+    }
   }
 
   setAttribute = (attribute, value) => {
@@ -170,9 +221,10 @@ class Autocomplete {
   }
 
   handleDocumentClick = event => {
-    if (this.root.contains(event.target)) {
-      return
-    }
+    if (this.target)
+      if (this.root.contains(event.target)) {
+        return
+      }
     this.core.hideResults()
   }
 
@@ -181,14 +233,14 @@ class Autocomplete {
     this.root.dataset.loading = this.loading
     this.root.dataset.position = this.position
 
-    this.resultList.style.visibility = this.expanded ? 'visible' : 'hidden'
-    this.resultList.style.pointerEvents = this.expanded ? 'auto' : 'none'
+    this.resultContainer.style.visibility = this.expanded ? 'visible' : 'hidden'
+    this.resultContainer.style.pointerEvents = this.expanded ? 'auto' : 'none'
     if (this.position === 'below') {
-      this.resultList.style.bottom = null
-      this.resultList.style.top = '100%'
+      this.resultContainer.style.bottom = null
+      this.resultContainer.style.top = '100%'
     } else {
-      this.resultList.style.top = null
-      this.resultList.style.bottom = '100%'
+      this.resultContainer.style.top = null
+      this.resultContainer.style.bottom = '100%'
     }
   }
 }

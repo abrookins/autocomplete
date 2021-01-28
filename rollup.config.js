@@ -46,7 +46,7 @@ const createConfig = async ({ root, plugins = [] }) => {
     {
       input: `${root}/index.js`,
       output: {
-        name: 'Autocomplete',
+        name: 'RedisLabsAutocomplete',
         file: `${root}/${pkg.unpkg}`,
         format: 'iife',
       },
