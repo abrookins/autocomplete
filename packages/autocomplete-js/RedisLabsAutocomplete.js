@@ -1,25 +1,79 @@
-import Autocomplete from './Autocomplete'
+import AutocompleteCore from '../autocomplete/AutocompleteCore.js'
 import uniqueId from '../autocomplete/util/uniqueId.js'
+import getRelativePosition from '../autocomplete/util/getRelativePosition.js'
+import debounce from '../autocomplete/util/debounce.js'
 
-class RedisLabsAutocomplete extends Autocomplete {
-  constructor(root, opts = {}) {
-    super(root, opts)
+// Creates a props object with overridden toString function. toString returns an attributes
+// string in the format: `key1="value1" key2="value2"` for easy use in an HTML string.
+class Props {
+  constructor(index, selectedIndex, baseClass) {
+    this.id = `${baseClass}-result-${index}`
+    this.class = `${baseClass}-result`
+    this['data-result-index'] = index
+    this['tabindex'] = index
+    this.role = 'option'
+    if (index === selectedIndex) {
+      this['aria-selected'] = 'true'
+    }
+  }
 
-    // super() ends up calling the superclass's version of initialize.
-    // Why on earth would that be? I don't know. But we need to clean
-    // up some styles we don't need.
-    this.resultList.style.visibility = null
-    this.resultList.style.position = null
-    this.resultList.style['z-index'] = null
-    this.resultList.style.width = null
-    this.resultList.style['box-sizing'] = null
-    this.resultList.style['pointer-events'] = null
-    this.resultList.style.bottom = null
+  toString() {
+    return Object.keys(this).reduce(
+      (str, key) => `${str} ${key}="${this[key]}"`,
+      ''
+    )
+  }
+}
+
+class RedisLabsAutocomplete {
+  expanded = false
+  loading = false
+  position = {}
+  resetPosition = true
+
+  constructor(
+    root,
+    {
+      search,
+      onSubmit = () => {},
+      onUpdate = () => {},
+      baseClass = 'autocomplete',
+      autoSelect,
+      getResultValue = result => result,
+      renderResult,
+      debounceTime = 0,
+    } = {}
+  ) {
+    this.root = typeof root === 'string' ? document.querySelector(root) : root
+    this.input = this.root.querySelector('input')
+    this.resultList = this.root.querySelector('ul')
+    this.baseClass = baseClass
+    this.getResultValue = getResultValue
+    this.onUpdate = onUpdate
+    if (typeof renderResult === 'function') {
+      this.renderResult = renderResult
+    }
+
+    const core = new AutocompleteCore({
+      search,
+      autoSelect,
+      setValue: this.setValue,
+      setAttribute: this.setAttribute,
+      onUpdate: this.handleUpdate,
+      onSubmit,
+      onShow: this.handleShow,
+      onHide: this.handleHide,
+      onLoading: this.handleLoading,
+      onLoaded: this.handleLoaded,
+    })
+    if (debounceTime > 0) {
+      core.handleInput = debounce(core.handleInput, debounceTime)
+    }
+    this.core = core
 
     this.resultContainer = this.root.querySelector(
       '.autocomplete-result-list-wrapper'
     )
-
     this.resultContainer.style.position = 'absolute'
     this.resultContainer.style['z-index'] = '1'
     this.resultContainer.style.width = '100%'
@@ -60,19 +114,9 @@ class RedisLabsAutocomplete extends Autocomplete {
 
     this.input.setAttribute('aria-owns', this.resultList.id)
 
-    // Remove the superclass event handlers so we can add our replacements.
-    // Not sure why this is necessary if we're extending the class...
-    this.input.removeEventListener('blur', this.core.handleBlur)
-    // this.input.removeEventListener('keydown', this.core.handleKeyDown)
-    document
-      .querySelector('.autocomplete-input')
-      .removeEventListener('keydown', this.core.handleKeyDown)
-    document.body.removeEventListener('click', this.handleDocumentClick)
-
-    this.input.addEventListener('keydown', e => this.handleKeyDown(e))
-    document.body.addEventListener('click', this.handleDocumentClickReplacement)
+    document.body.addEventListener('click', this.handleDocumentClick)
+    this.input.addEventListener('keydown', this.handleKeyDown)
     this.input.addEventListener('input', this.core.handleInput)
-    this.input.addEventListener('keydown', this.core.handleKeyDown)
     this.input.addEventListener('focus', this.core.handleFocus)
     this.resultList.addEventListener(
       'mousedown',
@@ -83,24 +127,11 @@ class RedisLabsAutocomplete extends Autocomplete {
     this.updateStyle()
   }
 
-  handleBlurReplacement = event => {
-    this.redisearchLogo.style.visibility = 'hidden'
-    this.core.handleBlur(event)
-  }
-
-  handleDocumentClickReplacement = event => {
-    if (this.root.contains(event.target)) {
-      return
-    }
-    this.core.hideResults()
-  }
-
   updateStyle = () => {
     this.root.dataset.expanded = this.expanded
     this.root.dataset.loading = this.loading
     this.root.dataset.position = this.position
 
-    // this.redisearchLogo.style.visibility = this.expanded ? 'visible' : 'hidden'
     this.resultContainer.style.visibility = this.expanded ? 'visible' : 'hidden'
     this.resultContainer.style.pointerEvents = this.expanded ? 'auto' : 'none'
     if (this.position === 'below') {
@@ -112,7 +143,7 @@ class RedisLabsAutocomplete extends Autocomplete {
     }
   }
 
-  handleKeyDown(event) {
+  handleKeyDown = event => {
     const { key } = event
 
     switch (key) {
@@ -152,6 +183,164 @@ class RedisLabsAutocomplete extends Autocomplete {
       }
       default:
         return
+    }
+  }
+
+  setAttribute = (attribute, value) => {
+    this.input.setAttribute(attribute, value)
+  }
+
+  setValue = result => {
+    this.input.value = result ? this.getResultValue(result) : ''
+  }
+
+  renderResult = (result, props, index) =>
+    `<li ${props}>${this.getResultValue(result, index)}</li>`
+
+  handleUpdate = (results, selectedIndex) => {
+    this.resultList.innerHTML = ''
+    var topLevelNodes = {},
+      topLevelOrder = [],
+      resultsBySection = [],
+      idx = -1
+
+    // We need to create a data structure that looks like this:
+    // {
+    //   "Section Name": {
+    //     "Page title": [
+    //      {}, {}, {}  // Results for page
+    //   }
+    // }
+    //
+    // Given a section name, we want to be able to look up all its
+    // page objects ("Page title" . . . ). Keys in a JSON object
+    // are unordered, so we also track the order that sections
+    // should appear in the `topLevelOrder` array.
+    results.forEach(result => {
+      let rootName = result.hierarchy[0],
+        secondLevelName =
+          result.hierarchy.length > 1
+            ? result.hierarchy[1]
+            : result.hierarchy[0],
+        root = topLevelNodes[rootName]
+
+      if (root === undefined) {
+        let newRoot = {
+          name: rootName,
+          secondLevelOrder: [secondLevelName],
+        }
+        newRoot[secondLevelName] = [result]
+        topLevelNodes[rootName] = newRoot
+        topLevelOrder.push(rootName)
+      } else {
+        if (!root.hasOwnProperty(secondLevelName)) {
+          root[secondLevelName] = []
+          root.secondLevelOrder.push(secondLevelName)
+        }
+        root[secondLevelName].push(result)
+      }
+    })
+
+    topLevelOrder.forEach(topLevelNodeName => {
+      let topLevelNode = topLevelNodes[topLevelNodeName]
+
+      this.resultList.insertAdjacentHTML(
+        'beforeend',
+        `
+        <li class="search-root-item">
+          <div class="search-root">
+            ${topLevelNodeName}
+          </div>
+        </li>
+      `
+      )
+      topLevelNode.secondLevelOrder.forEach(sectionName => {
+        let secondLevel = topLevelNode[sectionName]
+        secondLevel.forEach((result, index) => {
+          idx += 1
+          let props = new Props(idx, selectedIndex, this.baseClass)
+          // Give the first result for a section a special class, so the
+          // front-end can style it by e.g. removing the top border.
+          if (index == 0) {
+            props.class = `${props.class} first-section-item`
+          }
+          // Use the total ordering index (idx) when rendering, rather than
+          // the index of this item within the section.
+          const resultHTML = this.renderResult(result, props, idx)
+          if (typeof resultHTML === 'string') {
+            this.resultList.insertAdjacentHTML('beforeend', resultHTML)
+          } else {
+            this.resultList.insertAdjacentElement('beforeend', resultHTML)
+          }
+
+          resultsBySection.push(result)
+        })
+      })
+    })
+
+    // The docs in the response are ordered by score, not by section. We need to
+    // reorder them by section (the order that the user sees) so that when we
+    // when the user clicks or presses enter on item 2 in the list, we can look
+    // up the record at index 2 and find the same item.
+    this.core.results = resultsBySection
+    results = resultsBySection
+
+    this.input.setAttribute(
+      'aria-activedescendant',
+      selectedIndex > -1 ? `${this.baseClass}-result-${selectedIndex}` : ''
+    )
+
+    if (this.resetPosition) {
+      this.resetPosition = false
+      this.position = getRelativePosition(this.input, this.resultList)
+      this.updateStyle()
+    }
+    this.core.checkSelectedResultVisible(this.resultList)
+    this.onUpdate(results, selectedIndex)
+  }
+
+  handleShow = () => {
+    this.expanded = true
+    this.updateStyle()
+  }
+
+  handleHide = () => {
+    this.expanded = false
+    this.resetPosition = true
+    this.updateStyle()
+  }
+
+  handleLoading = () => {
+    this.loading = true
+    this.updateStyle()
+  }
+
+  handleLoaded = () => {
+    this.loading = false
+    this.updateStyle()
+  }
+
+  handleDocumentClick = event => {
+    if (this.target)
+      if (this.root.contains(event.target)) {
+        return
+      }
+    this.core.hideResults()
+  }
+
+  updateStyle = () => {
+    this.root.dataset.expanded = this.expanded
+    this.root.dataset.loading = this.loading
+    this.root.dataset.position = this.position
+
+    this.resultContainer.style.visibility = this.expanded ? 'visible' : 'hidden'
+    this.resultContainer.style.pointerEvents = this.expanded ? 'auto' : 'none'
+    if (this.position === 'below') {
+      this.resultContainer.style.bottom = null
+      this.resultContainer.style.top = '100%'
+    } else {
+      this.resultContainer.style.top = null
+      this.resultContainer.style.bottom = '100%'
     }
   }
 }

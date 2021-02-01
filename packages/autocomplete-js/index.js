@@ -1,4 +1,4 @@
-import Autocomplete from './Autocomplete'
+import RedisLabsAutocomplete from './RedisLabsAutocomplete'
 import '../style.css'
 
-export default Autocomplete
+export default RedisLabsAutocomplete
