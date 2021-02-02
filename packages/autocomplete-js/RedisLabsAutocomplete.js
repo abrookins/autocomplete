@@ -329,10 +329,11 @@ class RedisLabsAutocomplete {
   }
 
   handleDocumentClick = event => {
-    if (this.target)
+    if (event.target) {
       if (this.root.contains(event.target)) {
         return
       }
+    }
     this.core.hideResults()
   }
 
