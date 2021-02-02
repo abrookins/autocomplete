@@ -197,25 +197,25 @@ class RedisLabsAutocomplete {
   renderResult = (result, props, index) =>
     `<li ${props}>${this.getResultValue(result, index)}</li>`
 
-  handleUpdate = (results, selectedIndex) => {
-    this.resultList.innerHTML = ''
+  organizeResultsBySection = results => {
     var topLevelNodes = {},
-      topLevelOrder = [],
-      resultsBySection = [],
-      idx = -1
+      topLevelOrder = []
 
-    // We need to create a data structure that looks like this:
+    // Given an array of document (web site) results ordered by score, each of
+    // which contains a title, hierarchy, etc., we need to create a new data
+    // structure that looks like this:
+    //
     // {
-    //   "Section Name": {
-    //     "Page title": [
-    //      {}, {}, {}  // Results for page
+    //   "Title of a root page in the site hierarchy": {
+    //     "Title of a page": [
+    //      {}, {}, {}  // Results for the page: could be the entire page, or multiple H2s.
     //   }
     // }
     //
-    // Given a section name, we want to be able to look up all its
-    // page objects ("Page title" . . . ). Keys in a JSON object
-    // are unordered, so we also track the order that sections
-    // should appear in the `topLevelOrder` array.
+    // When we render this data, we want to render the top-level sections in the
+    // order in which we encountered them in the original results array, so we
+    // maintain a "topLevelOrder" array to hold that order.
+    //
     results.forEach(result => {
       let rootName = result.hierarchy[0],
         secondLevelName =
@@ -241,8 +241,21 @@ class RedisLabsAutocomplete {
       }
     })
 
-    topLevelOrder.forEach(topLevelNodeName => {
-      let topLevelNode = topLevelNodes[topLevelNodeName]
+    return {
+      topLevelNodes: topLevelNodes,
+      topLevelOrder: topLevelOrder,
+    }
+  }
+
+  handleUpdate = (results, selectedIndex) => {
+    this.resultList.innerHTML = ''
+    var idx = -1,
+      resultsInOrderOfAppearance = []
+
+    let resultsBySection = this.organizeResultsBySection(results)
+
+    resultsBySection.topLevelOrder.forEach(topLevelNodeName => {
+      let topLevelNode = resultsBySection.topLevelNodes[topLevelNodeName]
 
       this.resultList.insertAdjacentHTML(
         'beforeend',
@@ -256,14 +269,10 @@ class RedisLabsAutocomplete {
       )
       topLevelNode.secondLevelOrder.forEach(sectionName => {
         let secondLevel = topLevelNode[sectionName]
-        secondLevel.forEach((result, index) => {
+
+        secondLevel.forEach(result => {
           idx += 1
           let props = new Props(idx, selectedIndex, this.baseClass)
-          // Give the first result for a section a special class, so the
-          // front-end can style it by e.g. removing the top border.
-          if (index == 0) {
-            props.class = `${props.class} first-section-item`
-          }
           // Use the total ordering index (idx) when rendering, rather than
           // the index of this item within the section.
           const resultHTML = this.renderResult(result, props, idx)
@@ -272,8 +281,7 @@ class RedisLabsAutocomplete {
           } else {
             this.resultList.insertAdjacentElement('beforeend', resultHTML)
           }
-
-          resultsBySection.push(result)
+          resultsInOrderOfAppearance.push(result)
         })
       })
     })
@@ -282,8 +290,8 @@ class RedisLabsAutocomplete {
     // reorder them by section (the order that the user sees) so that when we
     // when the user clicks or presses enter on item 2 in the list, we can look
     // up the record at index 2 and find the same item.
-    this.core.results = resultsBySection
-    results = resultsBySection
+    this.core.results = resultsInOrderOfAppearance
+    results = resultsInOrderOfAppearance
 
     this.input.setAttribute(
       'aria-activedescendant',
