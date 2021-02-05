@@ -9,7 +9,6 @@ services:
       - /home/node/app/node_modules
     ports:
       - '3000:3000' # docs
-      - '4003:4003' # autocomplete-js Storybook
       - '35729:35729' # docsify
     stdin_open: true
     tty: true

@@ -2,18 +2,14 @@
   "private": true,
   "scripts": {
     "postinstall": "lerna bootstrap",
-    "start": "concurrently \"npm:storybook:js\" \"npm:storybook:vue\"",
     "start:docs": "docsify serve docs",
     "prebuild": "npm run clean:build",
     "build": "rollup -c",
     "clean": "npm run clean:build && lerna clean",
     "clean:build": "lerna exec -- rimraf dist LICENSE",
-    "lint": "eslint --fix --ignore-path .gitignore --ext .js,.vue .",
+    "lint": "eslint --fix --ignore-path .gitignore --ext .js .",
     "version": "lerna version --no-push --force-publish",
-    "publish": "lerna exec -- npm publish",
-    "storybook:js": "node scripts/storybook-js.js",
-    "storybook:vue": "node scripts/storybook-vue.js",
-    "build-storybook": "build-storybook"
+    "publish": "lerna exec -- npm publish"
   },
   "husky": {
     "hooks": {
@@ -33,9 +29,6 @@
     "@babel/core": "^7.4.5",
     "@babel/plugin-proposal-class-properties": "^7.4.4",
     "@babel/preset-env": "^7.4.5",
-    "@storybook/addon-actions": "^5.3.13",
-    "@storybook/html": "^5.3.13",
-    "@storybook/vue": "^5.3.13",
     "@vue/eslint-config-prettier": "^4.0.1",
     "babel-eslint": "^10.0.1",
     "babel-loader": "^8.0.6",
