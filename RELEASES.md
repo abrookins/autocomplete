@@ -13,7 +13,7 @@ Release versions follow [Semver](https://semver.org/). To create a new release, 
 Title:
 
 ```
-v2.0.0
+v1.0.0
 ```
 
 Description (copy directly from `CHANGELOG`):
@@ -24,12 +24,6 @@ Description (copy directly from `CHANGELOG`):
 - BREAKING: Changed default class for results list from `autocomplete-results` to `autocomplete-result-list`
 - BREAKING: Changed default ID for results list from `autocomplete-results-{id}` to `autocomplete-result-list-{id}`
 - BREAKING: Call `search` function on focus
-
-### autocomplete-vue
-
-- BREAKING: Updated default slot to control template for entire component
-- BREAKING: Added new slot called `result` to control template for a single result item
-- BREAKING: Removed `onSubmit` prop to use custom `submit` event instead
 
 ### autocomplete-js
 

@@ -1,7 +1,5 @@
 import babel from 'rollup-plugin-babel'
 import { terser } from 'rollup-plugin-terser'
-import commonjs from 'rollup-plugin-commonjs'
-import vue from 'rollup-plugin-vue'
 import postcss from 'rollup-plugin-postcss'
 import copy from 'rollup-plugin-copy'
 
@@ -66,33 +64,12 @@ const createConfig = async ({ root, plugins = [] }) => {
 }
 
 const config = async () => {
-  const [
-    autocompleteConfig,
-    autocompleteJsConfig,
-    autocompleteVueConfig,
-  ] = await Promise.all([
+  const [autocompleteConfig, autocompleteJsConfig] = await Promise.all([
     createConfig({ root: 'packages/autocomplete' }),
     createConfig({ root: 'packages/autocomplete-js' }),
-    createConfig({
-      root: 'packages/autocomplete-vue',
-      plugins: [
-        commonjs(),
-        vue({
-          css: false,
-          compileTemplate: true,
-          template: {
-            isProduction: true,
-          },
-        }),
-      ],
-    }),
   ])
 
-  return Promise.resolve([
-    ...autocompleteConfig,
-    ...autocompleteJsConfig,
-    ...autocompleteVueConfig,
-  ])
+  return Promise.resolve([...autocompleteConfig, ...autocompleteJsConfig])
 }
 
 export default config
