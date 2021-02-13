@@ -1,3 +1,0 @@
-- [JavaScript component](javascript-component.md)
-- [Vue component](vue-component.md)
-- [Core package](core-package.md)
