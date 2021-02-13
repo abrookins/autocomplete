@@ -60,6 +60,25 @@ const createConfig = async ({ root, plugins = [] }) => {
         terser(),
       ],
     },
+    {
+      input: `${root}/index.js`,
+      output: {
+        name: 'RedisLabsAutocomplete',
+        file: `${pkg.demo}`,
+        format: 'iife',
+      },
+      plugins: [
+        babel({
+          exclude: 'node_modules/**',
+        }),
+        postcss({
+          extract: `demo/css/autocomplete.css`,
+          minimize: true,
+        }),
+        ...plugins,
+        terser(),
+      ],
+    },
   ])
 }
 

@@ -1,7 +1,7 @@
 {
-  "name": "@trevoreyre/autocomplete",
-  "version": "2.2.0",
-  "description": "Simple autocomplete component in vanilla JS and Vue",
+  "name": "@redislabs/redis-sitesearch-frontend",
+  "version": "1.0",
+  "description": "JavaScript front-end to redis-sitesearch powered APIs",
   "main": "dist/autocomplete.cjs.js",
   "module": "dist/autocomplete.esm.js",
   "unpkg": "dist/autocomplete.min.js",
@@ -15,10 +15,10 @@
     "a11y",
     "WAI-ARIA"
   ],
-  "author": "Trevor Eyre <trevoreyre@gmail.com> (https://trevoreyre.com)",
+  "author": "Andrew Brookins / Redis Labs <andrew.brookins@redislabs.com> (https://redislabs.com)",
   "license": "MIT",
-  "repository": "trevoreyre/autocomplete",
-  "bugs": "https://github.com/trevoreyre/autocomplete/issues",
+  "repository": "abrookins/redis-sitesearch-frontend",
+  "bugs": "https://github.com/abrookins/redis-sitesearch-frontend/issues",
   "private": false,
   "publishConfig": {
     "access": "public"

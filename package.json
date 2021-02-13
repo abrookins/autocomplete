@@ -5,9 +5,10 @@
     "start:docs": "docsify serve docs",
     "prebuild": "npm run clean:build",
     "build": "rollup -c",
+    "watch": "rollup -c -w",
     "clean": "npm run clean:build && lerna clean",
     "clean:build": "lerna exec -- rimraf dist LICENSE",
-    "lint": "eslint --fix --ignore-path .gitignore --ext .js .",
+    "lint": "eslint --fix --ignore-path .gitignore --ignore-path .eslintignore --ext .js .",
     "version": "lerna version --no-push --force-publish",
     "publish": "lerna exec -- npm publish"
   },
